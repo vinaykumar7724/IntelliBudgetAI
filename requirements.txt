@@ -1,0 +1,15 @@
+flask
+flask_sqlalchemy
+flask_login
+werkzeug
+pymysql
+tensorflow
+keras
+scikit-learn
+pandas
+numpy
+python-dotenv
+python-dateutil
+reportlab
+dateparser
+flask-cors

@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .profile-container { display:flex; gap:2rem; }
+    .profile-left  { flex:0 0 25%; min-width:250px; }
+    .profile-right { flex:1; }
+
+    .profile-card {
+        background:#fff; border-radius:8px; padding:2rem;
+        box-shadow:0 2px 8px rgba(0,0,0,.1);
+        border-left:4px solid #734f9a;
+    }
+    .profile-card h3 {
+        margin-top:0; color:#734f9a; font-size:1.3rem;
+        margin-bottom:1.5rem; border-bottom:2px solid #f0f0f0;
+        padding-bottom:.75rem;
+    }
+    .profile-info-item  { margin-bottom:1.5rem; }
+    .profile-info-label {
+        font-weight:600; color:#666; font-size:.9rem;
+        text-transform:uppercase; letter-spacing:.5px; margin-bottom:.5rem;
+    }
+    .profile-info-value { font-size:1.1rem; color:#333; word-break:break-word; }
+
+    .section-card {
+        background:#fff; border-radius:8px; padding:1.5rem;
+        box-shadow:0 2px 8px rgba(0,0,0,.1); margin-bottom:1.5rem;
+    }
+    .section-card h4 {
+        color:#734f9a; font-size:1.2rem; margin-bottom:1.5rem;
+        padding-bottom:.75rem; border-bottom:2px solid #f0f0f0;
+    }
+
+    .salary-form { display:flex; gap:1rem; align-items:flex-end; }
+    .salary-form .form-group { flex:1; margin-bottom:0; }
+
+    .budget-form { display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
+    .budget-form input  { flex:1; min-width:150px; }
+    .budget-form button { white-space:nowrap; }
+
+    /* Category chips */
+    .cat-chip {
+        display:inline-flex; align-items:center; gap:6px;
+        padding:5px 12px; border-radius:20px; font-size:13px;
+        font-weight:500; margin:4px; border:1px solid #dee2e6;
+        background:#f8f9fa;
+    }
+    .cat-chip .del-btn {
+        cursor:pointer; color:#dc3545; font-weight:700;
+        border:none; background:none; padding:0; line-height:1;
+    }
+    .cat-chip .del-btn:hover { opacity:.7; }
+
+    @media (max-width:768px) {
+        .profile-container { flex-direction:column; }
+        .profile-left, .profile-right { flex:0 0 100%; }
+        .salary-form, .budget-form { flex-direction:column; }
+        .salary-form button, .budget-form button { width:100%; }
+    }
+</style>
+
+<div class="profile-container">
+
+    <!-- ── Left: Profile info ────────────────────────────────────── -->
+    <div class="profile-left">
+        <div class="profile-card">
+            <h3>👤 Profile Information</h3>
+            <div class="profile-info-item">
+                <div class="profile-info-label">Username</div>
+                <div class="profile-info-value">{{ current_user.username }}</div>
+            </div>
+            <div class="profile-info-item">
+                <div class="profile-info-label">Email</div>
+                <div class="profile-info-value">{{ current_user.email }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Right: Salary + Budgets + Custom Categories ───────────── -->
+    <div class="profile-right">
+
+        <!-- Salary -->
+        <div class="section-card">
+            <h4>💵 Monthly Salary</h4>
+            <form method="post" action="{{ url_for('profile') }}">
+                <div class="salary-form">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label fw-semibold" for="monthly_salary">Amount (₹)</label>
+                        <input type="number" step="0.01" class="form-control"
+                               id="monthly_salary" name="monthly_salary"
+                               value="{{ current_user.monthly_salary or '' }}"
+                               placeholder="Enter your monthly salary" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Salary</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Budgets -->
+        <div class="section-card">
+            <h4>📊 Budget Limits</h4>
+            <form method="post" action="{{ url_for('budgets') }}" class="budget-form">
+                <input type="text" name="category" class="form-control"
+                       placeholder="Category (e.g. Food, Transport)" required>
+                <input type="number" step="0.01" name="limit_amount" class="form-control"
+                       placeholder="Limit Amount (₹)" required>
+                <button type="submit" class="btn btn-success">➕ Add Budget</button>
+            </form>
+
+            {% if budgets %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Category</th>
+                            <th>Limit</th>
+                            <th class="text-nowrap" style="width:340px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in budgets %}
+                        <tr>
+                            <td><strong>{{ b.category }}</strong></td>
+                            <td>₹{{ "%.2f"|format(b.limit_amount) }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            title="Edit"
+                                            onclick="toggleBudgetEdit('{{ b.id }}')">
+                                        ✏️
+                                    </button>
+
+                                    <form method="post"
+                                          action="{{ url_for('update_budget', budget_id=b.id) }}"
+                                          id="budgetForm{{ b.id }}"
+                                          class="d-none">
+                                        <div class="input-group input-group-sm flex-nowrap">
+                                            <input type="number" step="0.01"
+                                                   name="limit_amount"
+                                                   class="form-control"
+                                                   id="budgetInput{{ b.id }}"
+                                                   value="{{ b.limit_amount }}"
+                                                   min="0.01"
+                                                   required>
+                                            <button type="submit" class="btn btn-primary" title="Save">
+                                                Save
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <form method="post" action="{{ url_for('delete_budget', budget_id=b.id) }}"
+                                          onsubmit="return confirm('Delete budget limit for {{ b.category }}?');">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mt-2">
+                No budgets yet. Add one above to get started!
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════
+             FEATURE 1 — Custom User Categories
+             ═══════════════════════════════════════════════════════ -->
+        <div class="section-card">
+            <h4>🏷️ Custom Expense Categories</h4>
+            <p class="text-muted small mb-3">
+                Create your own categories. These appear alongside the
+                default ones (Food, Transport, Shopping…) in the chatbot.
+            </p>
+
+            <!-- Add category form -->
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Category Name</label>
+                    <input type="text" id="catName" class="form-control form-control-sm"
+                           placeholder="e.g. Gaming, Pets">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Icon (emoji)</label>
+                    <input type="text" id="catIcon" class="form-control form-control-sm"
+                           placeholder="🎮" maxlength="5" value="🏷️">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Colour</label>
+                    <input type="color" id="catColor" class="form-control form-control-sm
+                           form-control-color" value="#6366f1" style="height:32px;">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary btn-sm w-100"
+                            onclick="createCategory()">
+                        ➕ Add
+                    </button>
+                </div>
+            </div>
+
+            <!-- Existing custom categories -->
+            <div id="customCatsDisplay">
+                <div class="text-muted small" id="catsLoading">Loading categories…</div>
+            </div>
+
+            <div class="mt-3">
+                <strong class="small text-muted">Default categories (always available):</strong><br>
+                <span class="cat-chip">🍔 Food</span>
+                <span class="cat-chip">🚗 Transport</span>
+                <span class="cat-chip">🛍️ Shopping</span>
+                <span class="cat-chip">💊 Health</span>
+                <span class="cat-chip">📚 Education</span>
+                <span class="cat-chip">🏠 Bills</span>
+                <span class="cat-chip">📦 Other</span>
+            </div>
+        </div>
+
+    </div><!-- /profile-right -->
+</div><!-- /profile-container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── Feature 1: Custom Categories ───────────────────────────── */
+
+async function loadCustomCategories() {
+    try {
+        const res  = await fetch('/api/categories');
+        const data = await res.json();
+
+        // Filter out defaults — only show user-created ones
+        const defaultNames = new Set([
+            'Food','Transport','Shopping','Health','Education','Bills','Other'
+        ]);
+        const custom = data.categories.filter(c => !defaultNames.has(c.name));
+
+        const container = document.getElementById('customCatsDisplay');
+
+        if (custom.length === 0) {
+            container.innerHTML =
+                '<p class="text-muted small">No custom categories yet. Add one above!</p>';
+            return;
+        }
+
+        let html = '<strong class="small text-muted">Your custom categories:</strong><br class="mb-1">';
+        custom.forEach(c => {
+            html += `
+                <span class="cat-chip" style="border-color:${c.color};">
+                    <span>${c.icon || ''} ${c.name}</span>
+                    <button class="del-btn" onclick="deleteCategory(${c.id}, '${c.name}')"
+                            title="Delete">✕</button>
+                </span>`;
+        });
+        container.innerHTML = html;
+
+    } catch (err) {
+        document.getElementById('customCatsDisplay').innerHTML =
+            '<p class="text-danger small">Could not load categories.</p>';
+    }
+}
+
+async function createCategory() {
+    const name  = document.getElementById('catName').value.trim();
+    const icon  = document.getElementById('catIcon').value.trim() || '🏷️';
+    const color = document.getElementById('catColor').value;
+
+    if (!name) {
+        alert('Please enter a category name.');
+        return;
+    }
+
+    try {
+        const res  = await fetch('/api/categories', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ name, icon, color })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            document.getElementById('catName').value  = '';
+            document.getElementById('catIcon').value  = '🏷️';
+            loadCustomCategories();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+async function deleteCategory(catId, catName) {
+    if (!confirm(`Delete category "${catName}"?`)) return;
+
+    try {
+        const res  = await fetch(`/api/categories/${catId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            loadCustomCategories();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Network error: ' + err.message);
+    }
+}
+
+// Load on page open
+document.addEventListener('DOMContentLoaded', loadCustomCategories);
+</script>
+
+<script>
+function toggleBudgetEdit(id) {
+    const form  = document.getElementById('budgetForm' + id);
+    const input = document.getElementById('budgetInput' + id);
+    if (!form || !input) return;
+
+    form.classList.toggle('d-none');
+    if (!form.classList.contains('d-none')) {
+        setTimeout(() => {
+            input.focus();
+            input.select?.();
+        }, 50);
+    }
+}
+</script>
+{% endblock %}
